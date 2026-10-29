@@ -32,12 +32,19 @@ function Login() {
 
       const data = await response.json().catch(() => ({}));
 
-      if (response.ok) {
-        setMessageType("success");
-        setMessage("Login successful! Redirecting...");
+     if (response.ok) {
+  // Save the logged-in user's details
+  localStorage.setItem("user_id", String(data.user.user_id));
+  localStorage.setItem("full_name", data.user.full_name);
+  localStorage.setItem("email", data.user.email);
+  localStorage.setItem("role", data.user.role);
 
-        navigate("/home", { replace: true });
-      } else {
+  setMessageType("success");
+  setMessage("Login successful! Redirecting...");
+
+  navigate("/home", { replace: true });
+}
+    else {
         setMessageType("error");
         setMessage(data.error || "Login failed. Please check your details.");
       }

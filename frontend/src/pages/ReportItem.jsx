@@ -12,40 +12,70 @@ function ReportItem() {
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
-  const [photo, setPhoto] = useState(null);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [messageType, setMessageType] = useState("success");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    setMessage("");
+    setLoading(true);
+
+    const userId = Number(localStorage.getItem("user_id"));
+
+    if (!userId || userId <= 0) {
+      setMessageType("error");
+      setMessage("Please log in again before reporting an item.");
+      setLoading(false);
+      return;
+    }
 
     const report = {
-      itemType,
-      itemName,
+      user_id: userId,
+      item_name: itemName.trim(),
       category,
-      colour,
-      location,
-      date,
-      description,
-      photoName: photo ? photo.name : "",
+      colour: colour.trim(),
+      location: location.trim(),
+      date_lost_found: date,
+      description: description.trim(),
+      item_type: itemType,
     };
 
-    // Temporary: save the report in the browser for demonstration.
-    const existingReports = JSON.parse(
-      localStorage.getItem("campusReports") || "[]",
-    );
+    try {
+      const response = await fetch("http://127.0.0.1:5000/api/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(report),
+      });
 
-    existingReports.push(report);
-    localStorage.setItem("campusReports", JSON.stringify(existingReports));
+      const result = await response.json();
 
-    setMessage("Your report has been saved in this browser for now.");
-    setItemName("");
-    setCategory("");
-    setColour("");
-    setLocation("");
-    setDate("");
-    setDescription("");
-    setPhoto(null);
-    event.target.reset();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to submit the report.");
+      }
+
+      setMessageType("success");
+      setMessage("Your report has been saved successfully!");
+
+      setItemName("");
+      setCategory("");
+      setColour("");
+      setLocation("");
+      setDate("");
+      setDescription("");
+     
+
+      event.target.reset();
+    } catch (error) {
+      setMessageType("error");
+      setMessage(
+        error.message || "Could not connect to the server. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -156,15 +186,20 @@ function ReportItem() {
             id="photo"
             type="file"
             accept="image/*"
-            onChange={(event) => setPhoto(event.target.files[0] || null)}
+           
           />
 
-          <button type="submit" className="auth-button">
-            Submit Report
+          <p className="notification">
+            Photo upload is not connected yet. The report will be saved without
+            the image.
+          </p>
+
+          <button type="submit" className="auth-button" disabled={loading}>
+            {loading ? "Submitting..." : "Submit Report"}
           </button>
 
           {message && (
-            <p className="notification success" role="status">
+            <p className={`notification ${messageType}`} role="status">
               {message}
             </p>
           )}

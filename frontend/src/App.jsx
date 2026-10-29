@@ -1,11 +1,6 @@
 import "./App.css";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Link,
-  //useSearchParams,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ReportItem from "./pages/ReportItem.jsx";
@@ -15,7 +10,24 @@ import AdminDashboard from "./pages/AdminDashboard.jsx";
 import ItemDetails from "./pages/ItemDetails.jsx";
 import MyClaims from "./pages/MyClaims.jsx";
 
+function ProtectedRoute({ children, allowedRoles }) {
+  const role = localStorage.getItem("role");
+
+  if (!role) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!allowedRoles.includes(role)) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return children;
+}
+
 function Home() {
+  const role = localStorage.getItem("role");
+  const fullName = localStorage.getItem("full_name");
+
   return (
     <div className="home-page">
       <header>
@@ -24,8 +36,31 @@ function Home() {
         <nav>
           <Link to="/home">Home</Link>
           <Link to="/browse">Browse Items</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/register">Register</Link>
+
+          {role === "admin" || role === "super_admin" ? (
+            <Link to="/admin">Admin Dashboard</Link>
+          ) : (
+            <>
+              <Link to="/report?type=lost">Report Item</Link>
+              <Link to="/my-reports">My Reports</Link>
+              <Link to="/my-claims">My Claims</Link>
+            </>
+          )}
+
+          <span>Welcome, {fullName || "User"}</span>
+
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem("user_id");
+              localStorage.removeItem("full_name");
+              localStorage.removeItem("email");
+              localStorage.removeItem("role");
+              window.location.replace("/login");
+            }}
+          >
+            Logout
+          </button>
         </nav>
       </header>
 
@@ -64,15 +99,12 @@ function Home() {
           <div className="feature-list">
             <div className="feature-card">
               <h3>1. Report</h3>
-              <p>
-                Report an item you have lost or an item you have found on
-                campus.
-              </p>
+              <p>Report an item you have lost or found on campus.</p>
             </div>
 
             <div className="feature-card">
               <h3>2. Search</h3>
-              <p>Browse and search through reported lost and found items.</p>
+              <p>Browse and search through reported items.</p>
             </div>
 
             <div className="feature-card">
@@ -84,9 +116,7 @@ function Home() {
 
             <div className="feature-card">
               <h3>4. Recover</h3>
-              <p>
-                Submit a claim and work towards getting your belongings back.
-              </p>
+              <p>Submit a claim and work towards recovering your belongings.</p>
             </div>
           </div>
         </section>
@@ -94,9 +124,10 @@ function Home() {
         <section className="home-browse">
           <h2>Looking for a Lost Item?</h2>
           <p>
-            Browse the items reported by other students to see whether your
-            missing belongings have been found.
+            Browse reported items to see whether your missing belongings have
+            been found.
           </p>
+
           <Link to="/browse" className="home-button">
             Browse Items
           </Link>
@@ -111,21 +142,90 @@ function Home() {
   );
 }
 
-
 function App() {
+  const role = localStorage.getItem("role");
+  const isAdmin = role === "admin" || role === "super_admin";
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to={role ? (isAdmin ? "/admin" : "/home") : "/login"}
+              replace
+            />
+          }
+        />
+
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/browse" element={<Browse />} />
-        <Route path="/report" element={<ReportItem />} />
-        <Route path="/my-reports" element={<MyReports />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/items/:id" element={<ItemDetails />} />
-        <Route path="/my-claims" element={<MyClaims />} />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute allowedRoles={["student", "admin", "super_admin"]}>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/browse"
+          element={
+            <ProtectedRoute allowedRoles={["student", "admin", "super_admin"]}>
+              <Browse />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <ReportItem />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-reports"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <MyReports />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-claims"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <MyClaims />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/items/:id"
+          element={
+            <ProtectedRoute allowedRoles={["student", "admin", "super_admin"]}>
+              <ItemDetails />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

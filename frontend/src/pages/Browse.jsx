@@ -1,27 +1,54 @@
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 function Browse() {
-  const [reports] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("campusReports") || "[]");
-    } catch {
-      return [];
-    }
-  });
-
+  const [reports, setReports] = useState([]);
   const [filterType, setFilterType] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
+  // Fetch reports from the Flask API
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/api/items");
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load items.");
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("The server returned an unexpected response.");
+        }
+
+        setReports(data);
+      } catch (err) {
+        console.error("Error loading reports:", err);
+        setError(
+          "Could not load items. Make sure the Flask backend is running."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchReports();
+  }, []);
+
+  // Apply search and filters
   const filteredReports = reports.filter((report) => {
-    const matchesType = filterType === "all" || report.itemType === filterType;
+    const matchesType =
+      filterType === "all" || report.item_type === filterType;
 
     const matchesCategory =
       filterCategory === "all" || report.category === filterCategory;
 
     const searchText = [
-      report.itemName,
+      report.item_name,
       report.category,
       report.colour,
       report.location,
@@ -56,8 +83,8 @@ function Browse() {
         <section className="browse-heading">
           <h1>Browse Lost &amp; Found Items</h1>
           <p>
-            Search reported items to see whether someone has found what you lost
-            or reported an item you found.
+            Search reported items to see whether someone has found what you
+            lost or reported an item you found.
           </p>
         </section>
 
@@ -89,7 +116,9 @@ function Browse() {
             <option value="Electronics">Electronics</option>
             <option value="Bags">Bags</option>
             <option value="Clothing">Clothing</option>
-            <option value="Books and Stationery">Books and Stationery</option>
+            <option value="Books and Stationery">
+              Books and Stationery
+            </option>
             <option value="Identity Cards">Identity Cards</option>
             <option value="Keys">Keys</option>
             <option value="Accessories">Accessories</option>
@@ -102,24 +131,32 @@ function Browse() {
           <span>{filteredReports.length} found</span>
         </div>
 
-        {filteredReports.length > 0 ? (
+        {loading ? (
+          <p>Loading reported items...</p>
+        ) : error ? (
+          <section className="empty-results">
+            <h3>Unable to load items</h3>
+            <p>{error}</p>
+          </section>
+        ) : filteredReports.length > 0 ? (
           <section className="items-grid">
-            {filteredReports.map((report, index) => (
-              <article
-                className="item-card"
-                key={`${report.itemName}-${index}`}
-              >
+            {filteredReports.map((report) => (
+              <article className="item-card" key={report.item_id}>
                 <div className="item-card-top">
-                  <span className={`item-type-badge ${report.itemType}`}>
-                    {report.itemType === "lost" ? "Lost Item" : "Found Item"}
+                  <span
+                    className={`item-type-badge ${report.item_type}`}
+                  >
+                    {report.item_type === "lost" ? "Lost Item" : "Found Item"}
                   </span>
+
                   <span className="item-category">{report.category}</span>
                 </div>
 
-                <h3>{report.itemName}</h3>
+                <h3>{report.item_name}</h3>
 
                 <p>
-                  <strong>Colour:</strong> {report.colour || "Not specified"}
+                  <strong>Colour:</strong>{" "}
+                  {report.colour || "Not specified"}
                 </p>
 
                 <p>
@@ -127,11 +164,18 @@ function Browse() {
                 </p>
 
                 <p>
-                  <strong>Date:</strong> {report.date}
+                  <strong>Date:</strong>{" "}
+                  {report.date_lost_found
+                    ? String(report.date_lost_found).slice(0, 10)
+                    : "Not specified"}
                 </p>
 
                 {report.description && <p>{report.description}</p>}
-                <Link to={`/items/${index}`} className="item-details-link">
+
+                <Link
+                  to={`/items/${report.item_id}`}
+                  className="item-details-link"
+                >
                   View Details →
                 </Link>
               </article>
@@ -141,9 +185,10 @@ function Browse() {
           <section className="empty-results">
             <h3>No items found</h3>
             <p>
-              There are no reports matching your search. Try another filter or
-              report an item.
+              There are no reports matching your search. Try another filter
+              or report an item.
             </p>
+
             <Link to="/report?type=lost" className="home-button">
               Report a Lost Item
             </Link>
